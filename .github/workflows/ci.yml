@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: pip install -r requirements.txt
+      - name: Unit + scenario tests (SQLite, no containers)
+        run: python -m pytest tests -q
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: tests
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start stack
+        run: docker compose up -d --build
+      - name: Wait for /health
+        run: |
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health || true)
+            [ "$code" = "200" ] && break
+            sleep 2
+          done
+          code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health || true)
+          [ "$code" = "200" ] || { echo "health=$code"; docker compose logs app; exit 1; }
+      - name: Run evals (no LLM key required; template replies drive the agent)
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        run: python evals/run.py http://localhost:8000

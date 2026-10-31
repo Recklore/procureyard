@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>QuickDrop — Ops</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 24px; color: #1d2733; }
+    h1 { font-size: 20px; } h2 { font-size: 16px; margin-top: 28px; }
+    table { border-collapse: collapse; width: 100%; font-size: 14px; }
+    td, th { border: 1px solid #d5dbe2; padding: 6px 10px; text-align: left; vertical-align: top; }
+    th { background: #f2f5f8; }
+    .riders span { display: inline-block; margin: 2px 6px 2px 0; }
+    a { color: #0b62c4; text-decoration: none; } a:hover { text-decoration: underline; }
+    button { padding: 3px 12px; cursor: pointer; }
+    .ok { color: #19721c; } .rej { color: #a01d1d; } .pend { color: #7a5b00; }
+    pre.step { background:#f7f9fb; border:1px solid #e3e8ee; padding:6px 10px; margin:4px 0; white-space: pre-wrap; font-size: 12px;}
+    .kind { font-weight: 600; }
+  </style>
+</head>
+<body>
+  <h1>QuickDrop Ops — Dispute Desk</h1>
+
+  <h2>Rider conversations</h2>
+  <p class="riders">
+    {% for r in riders %}<span><a href="/ops?rider={{ r }}">{{ r }}</a></span>{% else %}<span>No messages yet.</span>{% endfor %}
+  </p>
+
+  <h2>Waiting for ops (approvals / escalations)</h2>
+  <table>
+    <tr><th>id</th><th>rider</th><th>type</th><th>amount</th><th>reason</th><th>status</th><th>actions</th></tr>
+    {% for p in pending %}
+    <tr>
+      <td>{{ p.id }}</td><td>{{ p.rider_id }}</td>
+      <td><span class="kind">{{ p.type }}</span></td>
+      <td>{{ p.amount if p.amount is not none else '—' }}</td>
+      <td>{{ p.reason }}</td>
+      <td class="{{ 'ok' if p.status=='approved' else ('rej' if p.status=='rejected' else 'pend') }}">{{ p.status }}</td>
+      <td>
+        {% if p.status == 'pending' and p.type == 'approval' %}
+          <form method="post" action="/ops/approve/{{ p.id }}" style="display:inline">
+            <button type="submit">Approve &amp; pay</button></form>
+          <form method="post" action="/ops/reject/{{ p.id }}" style="display:inline">
+            <button type="submit">Reject</button></form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7">Queue is empty.</td></tr>
+    {% endfor %}
+  </table>
+
+  {% if rider %}
+  <h2>Trace — {{ rider }}</h2>
+  {% for t in trace %}
+    <div class="step"><b>{{ t.at }}</b> · <span class="kind">{{ t.type }}</span> · {{ t.name }}
+    {% if t.input %}\nIn: {{ t.input }}{% endif %}
+    {% if t.output %}\nOut: {{ t.output }}{% endif %}</div>
+  {% else %}
+  <p>No trace for this rider.</p>
+  {% endfor %}
+  {% endif %}
+</body>
+</html>

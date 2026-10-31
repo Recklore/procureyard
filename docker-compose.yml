@@ -1,6 +1,42 @@
-# Starter file. Add your own services (your app, Postgres) next to payswift. Leave payswift as it is.
+# Starter file: payswift stays as-is. app + postgres added by the implementation.
 services:
   payswift:
     build: ./payswift
     ports:
       - "8081:8081"
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: qd_disputes
+      POSTGRES_USER: qd
+      POSTGRES_PASSWORD: qd_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qd -d qd_disputes"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://qd:qd_password@postgres:5432/qd_disputes
+      PAYSWIFT_BASE_URL: http://payswift:8081
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-gemini-2.0-flash}
+      LLM_PROVIDER: ${LLM_PROVIDER:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      payswift:
+        condition: service_started
+
+volumes:
+  pgdata:
